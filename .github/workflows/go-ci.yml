@@ -6,6 +6,8 @@ on:
       - main
       - develop
       - 'feature/*'
+    tags:
+      - '*'
   pull_request:
     branches:
       - main
@@ -33,15 +35,25 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: ci
-    if: github.ref == 'refs/heads/main'  # chỉ chạy job này khi push lên main
+    if: github.ref == 'refs/heads/main' || github.ref_type == 'tag'  # chỉ chạy job này khi push lên main
     environment: key docker
     steps:
       - uses: actions/checkout@v3
 
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Determine Docker Tag
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "TAG_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=latest" >> $GITHUB_ENV
+          fi
+
       - name: Build Docker image
-        run: docker build -t duycutephomaique/go-app:latest .
+        run: docker build -t duycutephomaique/go-app:${TAG_NAME} .
 
       - name: Push Docker image
-        run: |
-          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          docker push duycutephomaique/go-app:latest
+        run: docker push duycutephomaique/go-app:${TAG_NAME}
