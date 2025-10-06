@@ -53,7 +53,7 @@ jobs:
           fi
 
       - name: Build Docker image
-        run: docker build -t duycutephomaique/go-app:${TAG_NAME} .
+        run: docker build -t duycutephomaique/go-app-auto-ci:${TAG_NAME} .
 
       - name: Push Docker image
-        run: docker push duycutephomaique/go-app:${TAG_NAME}
+        run: docker push duycutephomaique/go-app-auto-ci:${TAG_NAME}
