@@ -1,0 +1,12 @@
+.git
+.github
+Dockerfile
+docker-compose.yml
+*.md
+*.log
+node_modules
+.idea
+.vscode
+*.test
+*.out
+/app
