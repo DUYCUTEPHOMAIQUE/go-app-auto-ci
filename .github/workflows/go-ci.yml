@@ -15,6 +15,7 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    environment: key docker
 
     steps:
       - uses: actions/checkout@v3
