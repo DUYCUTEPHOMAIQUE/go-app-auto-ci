@@ -1,0 +1,77 @@
+name: Go CI + SonarCloud + Docker
+
+on:
+  push:
+    branches: [ main, dev ]
+    tags:
+      - '*'          # Khi bạn tạo tag (ví dụ v1.0.0)
+  pull_request:
+    branches: [ dev ]  # Khi có PR vào dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Build
+        run: go build -v ./...
+      - name: Run tests
+        run: go test ./...
+
+  sonarcloud:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
+    environment: key sonarcloud
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+      - name: Run tests with coverage
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref_type == 'tag'
+    environment: key docker
+    steps:
+      - uses: actions/checkout@v3
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Determine Docker Tag
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "TAG_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=latest" >> $GITHUB_ENV
+          fi
+      - name: Build Docker image
+        run: docker build -t duycutephomaique/go-app-auto-ci:${TAG_NAME} .
+      - name: Push Docker image
+        run: docker push duycutephomaique/go-app-auto-ci:${TAG_NAME}
